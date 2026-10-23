@@ -39,6 +39,26 @@ fun warn(message:String) = log(LogLevel.WARN, message)
 fun error(message:String) = log(LogLevel.ERROR, message)
 }
 
+class ParenthesesValidator {
+    fun isValid(input: String): Boolean {
+        var openCount = 0
+
+        for (char in input) {
+            when (char) {
+                '(' -> openCount++
+                ')' -> {
+                    if (openCount == 0) {
+                        return false
+                    }
+                    openCount--
+                }
+                else -> continue
+            }
+        }
+        return openCount == 0
+    }
+}
+
 fun main() {
     val redLogger = Logger("Red")
     val blueLogger = Logger("Blue")
@@ -75,6 +95,32 @@ fun main() {
     redLogger.info("Info Info Info")
 
     redLogger.info("test %t %m %n %l")
+
+
+    val validator = ParenthesesValidator()
+
+    val testCases = listOf(
+        "()" to true,
+        ")((()))" to false,
+        "(" to false,
+        "(())((()())())" to true,
+
+        "" to true,
+        "(()" to false,
+        "())" to false
+    )
+
+    println("ParenthesesValidator Tests")
+    var allPassed = true
+    for ((input, expected) in testCases) {
+        val actual = validator.isValid(input)
+        val passed = (actual == expected)
+        if (!passed) allPassed = false
+
+        val status = if (passed) "Passed" else "Failed"
+        println("[$status] Input: \"$input\" -> Expected: $expected, Actual: $actual")
+    }
+    println("All tests passed: $allPassed")
 
 
 }
