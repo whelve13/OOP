@@ -1,3 +1,6 @@
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+
 enum class LogLevel {
     TRACE, INFO, WARN, ERROR
 }
@@ -5,11 +8,28 @@ enum class LogLevel {
 class Logger(val name: String) {
     companion object {
         var level: LogLevel = LogLevel.INFO
+
+        var format: String = "[%t] [%l] %n: %m"
+
+        private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+    }
+
+    private fun formatMessage(messageLevel: LogLevel, message: String): String {
+        val currentTime = LocalTime.now().format(timeFormatter)
+        return Regex("%[tmln]").replace(format) { match ->
+            when (match.value) {
+                "%t" -> currentTime
+                "%m" -> message
+                "%n" -> name
+                "%l" -> messageLevel.name
+                else -> match.value
+            }
+        }
     }
     
     fun log(messageLevel: LogLevel, message: String) {
         if (messageLevel >= level) {
-            println("[$messageLevel] $name: $message")
+            println(formatMessage(messageLevel, message))
         }
     }
 
@@ -23,7 +43,7 @@ fun main() {
     val redLogger = Logger("Red")
     val blueLogger = Logger("Blue")
 
-    println("Default level is ${Logger.level}")
+    println("Default level is ${Logger.level}. Default format is ${Logger.format}")
     redLogger.trace("Trace mesage") // no output
     redLogger.info("Info message") // yes
     blueLogger.warn("Warning message") // yes
@@ -42,6 +62,19 @@ fun main() {
 
     redLogger.trace("Trace") // works
 
+    println("Change Logger.format to [%l] %m")
+    Logger.format = "[%l] %m"
+    redLogger.warn("Be warned!")
+
+    println("Change Logger.format to %n: %m")
+    Logger.format = "%n: %m"
+    blueLogger.error("Error message")
+
+    println("Change Logger.format to %l - %n - %m")
+    Logger.format = "%l - %n - %m"
+    redLogger.info("Info Info Info")
+
+    redLogger.info("test %t %m %n %l")
 
 
 }
