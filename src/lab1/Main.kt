@@ -12,16 +12,40 @@ class Logger(val name: String) {
         var format: String = "[%t] [%l] %n: %m"
 
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+
+        private val randomMessages: Map<LogLevel, List<String>> = mapOf(
+            LogLevel.TRACE to listOf(
+                "Inspecting step",
+                "Trace checkpoint reached",
+                "Event recorded"
+            ),
+            LogLevel.INFO to listOf(
+                "Operation completed",
+                "Everything looks good",
+                "Here is your result"
+            ),
+            LogLevel.WARN to listOf(
+                "Proceed with caution",
+                "Unusual condition detected",
+                "Bad state encountered"
+            ),
+            LogLevel.ERROR to listOf(
+                "Operation failed",
+                "Invalid input detected",
+                "Critical mismatch occured"
+            )
+        )
     }
 
     private fun formatMessage(messageLevel: LogLevel, message: String): String {
         val currentTime = LocalTime.now().format(timeFormatter)
-        return Regex("%[tmln]").replace(format) { match ->
+        return Regex("%[tmlnr]").replace(format) { match ->
             when (match.value) {
                 "%t" -> currentTime
                 "%m" -> message
                 "%n" -> name
                 "%l" -> messageLevel.name
+                "%r" -> randomMessages[messageLevel]?.random() ?: ""
                 else -> match.value
             }
         }
@@ -152,6 +176,20 @@ fun main() {
         println("Returned boolean: $result")
     }
 
+    println("\nDemonstrating %r")
+    Logger.format = "[%l] (%r) %n: %m"
+    Logger.level = LogLevel.TRACE
+
+    println("\nTesting '()' 3 times")
+    validator.isValid("()")
+    validator.isValid("()")
+    validator.isValid("()")
+
+    println("\nTesting invalid ')' to see WARN and ERROR messages pool")
+    validator.isValid(")")
+
+    println("\nTesting invalid '(' to see unclosed ERROR pool")
+    validator.isValid("(")
 
 
 }
