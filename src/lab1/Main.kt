@@ -40,22 +40,39 @@ fun error(message:String) = log(LogLevel.ERROR, message)
 }
 
 class ParenthesesValidator {
+
+    private val logger = Logger("Parentheses")
+
     fun isValid(input: String): Boolean {
         var openCount = 0
 
         for (char in input) {
             when (char) {
-                '(' -> openCount++
+                '(' -> {
+                    openCount++
+                    logger.trace("Found opening parentheses '('. Currently unmatched: $openCount")
+                }
                 ')' -> {
                     if (openCount == 0) {
+                        logger.warn("Closing parentheses ')' found with no matching opening parentheses.")
+                        logger.error("Validation failed: string \"$input\" has unmatched closing parentheses.")
+                        logger.info("Validation result for \"$input\": false")
                         return false
                     }
                     openCount--
+                    logger.info("Matched pair '()' found. Remaining unmatched: $openCount")
                 }
                 else -> continue
             }
         }
-        return openCount == 0
+        val result = (openCount == 0)
+
+        if (!result) {
+            logger.error("Validation failed: string \"$input\" has $openCount unclosed opening parentheses.")
+        }
+
+        logger.info("Validation result for \"$input\": $result")
+        return result
     }
 }
 
@@ -95,32 +112,46 @@ fun main() {
     redLogger.info("Info Info Info")
 
     redLogger.info("test %t %m %n %l")
+    println("\n")
 
 
     val validator = ParenthesesValidator()
 
-    val testCases = listOf(
-        "()" to true,
-        ")((()))" to false,
-        "(" to false,
-        "(())((()())())" to true,
+    val cases = listOf(
+        "()",
+        ")((()))",
+        "(",
+        "(())((()())())",
 
-        "" to true,
-        "(()" to false,
-        "())" to false
+        "",
+        "(()",
+        "())"
     )
 
-    println("ParenthesesValidator Tests")
-    var allPassed = true
-    for ((input, expected) in testCases) {
-        val actual = validator.isValid(input)
-        val passed = (actual == expected)
-        if (!passed) allPassed = false
+    Logger.format = "[%t] [%l] %n: %m"
 
-        val status = if (passed) "Passed" else "Failed"
-        println("[$status] Input: \"$input\" -> Expected: $expected, Actual: $actual")
+    println("Logger.level = TRACE")
+    Logger.level = LogLevel.TRACE
+    for (test in cases) {
+        println("\nTesting: \"$test\"")
+        validator.isValid(test)
     }
-    println("All tests passed: $allPassed")
+
+    println("\nLogger.level = INFO")
+    Logger.level = LogLevel.INFO
+    for (test in cases) {
+        println("\nTesting: \"$test\"")
+        validator.isValid(test)
+    }
+
+    println("\nLogger.level = ERROR")
+    Logger.level = LogLevel.ERROR
+    for (test in cases) {
+        println("\nTesting: \"$test\"")
+        val result = validator.isValid(test)
+        println("Returned boolean: $result")
+    }
+
 
 
 }
