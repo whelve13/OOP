@@ -1,6 +1,47 @@
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
+class Formatter(private var format: String = "[%t] [%l] %n: %m") {
+    companion object {
+        private val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+        private val randomMessages: Map<LogLevel, List<String>> = mapOf(
+            LogLevel.TRACE to listOf(
+                "Inspecting step",
+                "Trace checkpoint reached",
+                "Event recorded"
+            ),
+            LogLevel.INFO to listOf(
+                "Operation completed",
+                "Everything looks good",
+                "Here is your result"
+            ),
+            LogLevel.WARN to listOf(
+                "Proceed with caution",
+                "Unusual condition detected",
+                "Bad state encountered"
+            ),
+            LogLevel.ERROR to listOf(
+                "Operation failed",
+                "Invalid input detected",
+                "Critical mismatch occured"
+            )
+        )
+    }
+    fun format(level: LogLevel, name: String, message: String): String {
+        val currentTime = LocalTime.now().format(timeFormatter)
+        return Regex("%[tmlnr]").replace(format) { match ->
+            when (match.value) {
+                "%t" -> currentTime
+                "%m" -> message
+                "%n" -> name
+                "%l" -> level.name
+                "%r" -> randomMessages[level]?.random() ?: ""
+                else -> match.value
+            }
+        }
+    }
+}
+
 enum class LogLevel {
     TRACE, INFO, WARN, ERROR
 }
@@ -101,95 +142,18 @@ class ParenthesesValidator {
 }
 
 fun main() {
-    val redLogger = Logger("Red")
-    val blueLogger = Logger("Blue")
 
-    println("Default level is ${Logger.level}. Default format is ${Logger.format}")
-    redLogger.trace("Trace mesage") // no output
-    redLogger.info("Info message") // yes
-    blueLogger.warn("Warning message") // yes
-    blueLogger.error("Error message") // yes
-
-    println("Change Logger.level to WARN")
-    Logger.level = LogLevel.WARN
-
-    redLogger.trace("Trace message") // no
-    blueLogger.info("Info message") // no
-    redLogger.warn("Warn message") // yes
-    blueLogger.error("Error message") // yes
-
-    println("Change Logger.level to TRACE")
-    Logger.level = LogLevel.TRACE
-
-    redLogger.trace("Trace") // works
-
-    println("Change Logger.format to [%l] %m")
-    Logger.format = "[%l] %m"
-    redLogger.warn("Be warned!")
-
-    println("Change Logger.format to %n: %m")
-    Logger.format = "%n: %m"
-    blueLogger.error("Error message")
-
-    println("Change Logger.format to %l - %n - %m")
-    Logger.format = "%l - %n - %m"
-    redLogger.info("Info Info Info")
-
-    redLogger.info("test %t %m %n %l")
-    println("\n")
-
-
-    val validator = ParenthesesValidator()
-
-    val cases = listOf(
-        "()",
-        ")((()))",
-        "(",
-        "(())((()())())",
-
-        "",
-        "(()",
-        "())"
-    )
-
-    Logger.format = "[%t] [%l] %n: %m"
-
-    println("Logger.level = TRACE")
-    Logger.level = LogLevel.TRACE
-    for (test in cases) {
-        println("\nTesting: \"$test\"")
-        validator.isValid(test)
-    }
-
-    println("\nLogger.level = INFO")
-    Logger.level = LogLevel.INFO
-    for (test in cases) {
-        println("\nTesting: \"$test\"")
-        validator.isValid(test)
-    }
-
-    println("\nLogger.level = ERROR")
-    Logger.level = LogLevel.ERROR
-    for (test in cases) {
-        println("\nTesting: \"$test\"")
-        val result = validator.isValid(test)
-        println("Returned boolean: $result")
-    }
-
-    println("\nDemonstrating %r")
-    Logger.format = "[%l] (%r) %n: %m"
-    Logger.level = LogLevel.TRACE
-
-    println("\nTesting '()' 3 times")
-    validator.isValid("()")
-    validator.isValid("()")
-    validator.isValid("()")
-
-    println("\nTesting invalid ')' to see WARN and ERROR messages pool")
-    validator.isValid(")")
-
-    println("\nTesting invalid '(' to see unclosed ERROR pool")
-    validator.isValid("(")
+    val defaultFormatter = Formatter()
+    val shortFormatter = Formatter("[%l] %n >> %m")
+    val randomFormatter = Formatter("[%l] (%r) %n: %m")
+    println("Testing Default Formatter")
+    println(defaultFormatter.format(LogLevel.INFO, "Shop", "System initialized"))
+    println("\nTesting Short Formatter")
+    println(shortFormatter.format(LogLevel.WARN, "Parser", "Empty line skipped"))
+    println("\nTesting Random Formatter")
+    println(randomFormatter.format(LogLevel.ERROR, "Reader", "File not found"))
+    println("\nTesting Placeholder Safety")
+    println(defaultFormatter.format(LogLevel.INFO, "Math", "Ratio is 100%n"))
 
 
 }
