@@ -14,7 +14,7 @@ class Formatter(private var format: String = "[%t] [%l] %n: %m") {
             LogLevel.TRACE to listOf(
                 "Inspecting step",
                 "Trace checkpoint reached",
-                "Event recorded"
+                "Fine-grained event recorded"
             ),
             LogLevel.INFO to listOf(
                 "Operation completed",
@@ -24,21 +24,37 @@ class Formatter(private var format: String = "[%t] [%l] %n: %m") {
             LogLevel.WARN to listOf(
                 "Proceed with caution",
                 "Unusual condition detected",
-                "Bad state encountered"
+                "Non-optimal state encountered"
             ),
             LogLevel.ERROR to listOf(
                 "Operation failed",
                 "Invalid input detected",
-                "Critical mismatch occured"
+                "Critical mismatch occurred"
             )
         )
     }
-    fun format(level: LogLevel, name: String, message: String): String {
+    private fun interpolateMessage(message: String, args: Array<out Any?>): String {
+        if (args.isEmpty() && !message.contains("%%")) {
+            return message
+        }
+        var argIndex = 0
+        return Regex("%%|%").replace(message) { match ->
+            if (match.value == "%%") {
+                "%"
+            } else if (argIndex < args.size) {
+                args[argIndex++].toString()
+            } else {
+                "%"
+            }
+        }
+    }
+    fun format(level: LogLevel, name: String, message: String, vararg args: Any?): String {
         val currentTime = LocalTime.now().format(timeFormatter)
+        val resolvedMessage = interpolateMessage(message, args)
         return Regex("%[tmlnr]").replace(format) { match ->
             when (match.value) {
                 "%t" -> currentTime
-                "%m" -> message
+                "%m" -> resolvedMessage
                 "%n" -> name
                 "%l" -> level.name
                 "%r" -> randomMessages[level]?.random() ?: ""
@@ -57,22 +73,21 @@ class Logger(
     private val formatter: Formatter,
     private val sink: ConsoleSink
 ) {
-    // composition constructor
     constructor(name: String) : this(name, Formatter(), ConsoleSink())
     companion object {
-        // level static
         var level: LogLevel = LogLevel.INFO
     }
-    fun log(msgLevel: LogLevel, message: String) {
+    fun log(msgLevel: LogLevel, message: String, vararg args: Any?) {
+        // first check level
         if (msgLevel >= level) {
-            val formattedLine = formatter.format(msgLevel, name, message)
+            val formattedLine = formatter.format(msgLevel, name, message, *args)
             sink.write(formattedLine)
         }
     }
-    fun trace(message: String) = log(LogLevel.TRACE, message)
-    fun info(message: String) = log(LogLevel.INFO, message)
-    fun warn(message: String) = log(LogLevel.WARN, message)
-    fun error(message: String) = log(LogLevel.ERROR, message)
+    fun trace(message: String, vararg args: Any?) = log(LogLevel.TRACE, message, *args)
+    fun info(message: String, vararg args: Any?) = log(LogLevel.INFO, message, *args)
+    fun warn(message: String, vararg args: Any?) = log(LogLevel.WARN, message, *args)
+    fun error(message: String, vararg args: Any?) = log(LogLevel.ERROR, message, *args)
 }
 
 class ParenthesesValidator {
@@ -114,22 +129,16 @@ class ParenthesesValidator {
 
 fun main() {
     Logger.level = LogLevel.TRACE
-
-    val sharedFormatter = Formatter("[%t] [%l] %n: %m")
-    val console = ConsoleSink()
-    val parserLogger = Logger("Parser", sharedFormatter, console)
-    val managerLogger = Logger("Manager", sharedFormatter, console)
-
-    val specialLogger = Logger("Special", Formatter("%l >> %m"), console)
-    println("Testing Aggregation")
-    parserLogger.info("Reading commands")
-    managerLogger.warn("Low stock")
-    specialLogger.error("Custom format error")
-
-    println("\nTesting ParenthesesValidator (with composition)")
-    val validator = ParenthesesValidator()
-    validator.isValid("()")
-    validator.isValid(")(")
+    val logger = Logger("BonusTest")
+    println("Normal varargs")
+    logger.info("Pair found at % and %", 3, 7)
+    println("\nEscaped literal %%")
+    logger.info("Progress is 100%% complete for %", "Lab2")
+    println("\nEdge cases: mismatched counts")
+    logger.warn("More placeholders: % and % and %", "one")
+    logger.warn("More arguments: %", "first", "second", "third")
+    println("\nPlaceholder safety with varargs")
+    logger.info("User sent %", "%n %t")
 
 
 }
