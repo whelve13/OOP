@@ -1,6 +1,12 @@
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
+class ConsoleSink {
+    fun write(line: String) {
+        println(line)
+    }
+}
+
 class Formatter(private var format: String = "[%t] [%l] %n: %m") {
     companion object {
         private val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
@@ -46,62 +52,27 @@ enum class LogLevel {
     TRACE, INFO, WARN, ERROR
 }
 
-class Logger(val name: String) {
+class Logger(
+    val name: String,
+    private val formatter: Formatter,
+    private val sink: ConsoleSink
+) {
+    // composition constructor
+    constructor(name: String) : this(name, Formatter(), ConsoleSink())
     companion object {
+        // level static
         var level: LogLevel = LogLevel.INFO
-
-        var format: String = "[%t] [%l] %n: %m"
-
-        private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
-
-        private val randomMessages: Map<LogLevel, List<String>> = mapOf(
-            LogLevel.TRACE to listOf(
-                "Inspecting step",
-                "Trace checkpoint reached",
-                "Event recorded"
-            ),
-            LogLevel.INFO to listOf(
-                "Operation completed",
-                "Everything looks good",
-                "Here is your result"
-            ),
-            LogLevel.WARN to listOf(
-                "Proceed with caution",
-                "Unusual condition detected",
-                "Bad state encountered"
-            ),
-            LogLevel.ERROR to listOf(
-                "Operation failed",
-                "Invalid input detected",
-                "Critical mismatch occured"
-            )
-        )
     }
-
-    private fun formatMessage(messageLevel: LogLevel, message: String): String {
-        val currentTime = LocalTime.now().format(timeFormatter)
-        return Regex("%[tmlnr]").replace(format) { match ->
-            when (match.value) {
-                "%t" -> currentTime
-                "%m" -> message
-                "%n" -> name
-                "%l" -> messageLevel.name
-                "%r" -> randomMessages[messageLevel]?.random() ?: ""
-                else -> match.value
-            }
+    fun log(msgLevel: LogLevel, message: String) {
+        if (msgLevel >= level) {
+            val formattedLine = formatter.format(msgLevel, name, message)
+            sink.write(formattedLine)
         }
     }
-    
-    fun log(messageLevel: LogLevel, message: String) {
-        if (messageLevel >= level) {
-            println(formatMessage(messageLevel, message))
-        }
-    }
-
-fun trace(message: String) = log(LogLevel.TRACE, message)
-fun info(message: String) = log(LogLevel.INFO, message)
-fun warn(message:String) = log(LogLevel.WARN, message)
-fun error(message:String) = log(LogLevel.ERROR, message)
+    fun trace(message: String) = log(LogLevel.TRACE, message)
+    fun info(message: String) = log(LogLevel.INFO, message)
+    fun warn(message: String) = log(LogLevel.WARN, message)
+    fun error(message: String) = log(LogLevel.ERROR, message)
 }
 
 class ParenthesesValidator {
@@ -142,18 +113,23 @@ class ParenthesesValidator {
 }
 
 fun main() {
+    Logger.level = LogLevel.TRACE
 
-    val defaultFormatter = Formatter()
-    val shortFormatter = Formatter("[%l] %n >> %m")
-    val randomFormatter = Formatter("[%l] (%r) %n: %m")
-    println("Testing Default Formatter")
-    println(defaultFormatter.format(LogLevel.INFO, "Shop", "System initialized"))
-    println("\nTesting Short Formatter")
-    println(shortFormatter.format(LogLevel.WARN, "Parser", "Empty line skipped"))
-    println("\nTesting Random Formatter")
-    println(randomFormatter.format(LogLevel.ERROR, "Reader", "File not found"))
-    println("\nTesting Placeholder Safety")
-    println(defaultFormatter.format(LogLevel.INFO, "Math", "Ratio is 100%n"))
+    val sharedFormatter = Formatter("[%t] [%l] %n: %m")
+    val console = ConsoleSink()
+    val parserLogger = Logger("Parser", sharedFormatter, console)
+    val managerLogger = Logger("Manager", sharedFormatter, console)
+
+    val specialLogger = Logger("Special", Formatter("%l >> %m"), console)
+    println("Testing Aggregation")
+    parserLogger.info("Reading commands")
+    managerLogger.warn("Low stock")
+    specialLogger.error("Custom format error")
+
+    println("\nTesting ParenthesesValidator (with composition)")
+    val validator = ParenthesesValidator()
+    validator.isValid("()")
+    validator.isValid(")(")
 
 
 }
