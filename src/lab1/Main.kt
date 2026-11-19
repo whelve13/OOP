@@ -62,6 +62,39 @@ class Display(
     }
 }
 
+class DisplayManager(val name: String) {
+
+    private val assignedDisplays: MutableList<Display> = mutableListOf()
+
+    fun assignDisplay(d: Display) {
+        assignedDisplays.add(d)
+    }
+
+    fun assist() {
+        println("\n> Manager $name assisting")
+        if (assignedDisplays.isEmpty()) {
+            println("$name has no displays to compare.")
+            return
+        }
+        if (assignedDisplays.size == 1) {
+            println("$name only has 1 display (${assignedDisplays[0].model}); need at least 2 to compare.")
+            return
+        }
+
+        for (i in 0 until assignedDisplays.size - 1) {
+            assignedDisplays[i].compareWithMonitor(assignedDisplays[i + 1])
+        }
+    }
+
+    fun buyDisplay(d: Display): Display? {
+        return if (assignedDisplays.remove(d)) {
+            d
+        } else {
+            null
+        }
+    }
+}
+
 class ConsoleSink {
     fun write(line: String) {
         println(line)
@@ -192,12 +225,28 @@ fun main() {
     val dell = Display("Dell-U2723QE", 3840, 2160, 163.0f)
     val lg = Display("LG-27GP850", 2560, 1440, 108.8f)
     val samsung = Display("Samsung-Odyssey-G5", 2560, 1440, 93.0f)
-    samsung.compareSize(lg)
-    dell.compareSharpness(lg)
-    println()
-    dell.compareWithMonitor(samsung)
-    println()
-    dell.compareWithMonitor(lg)
+    val apple = Display("Apple-StudioDisplay", 5120, 2880, 218.0f)
+    val bob = DisplayManager("Bob")
+    val alice = DisplayManager("Alice")
 
-    
+    bob.assignDisplay(dell)
+    bob.assignDisplay(lg)
+    bob.assignDisplay(samsung)
+
+    alice.assignDisplay(apple)
+    alice.assignDisplay(dell)
+    bob.assist()
+    alice.assist()
+
+    println("\nBuying LG-27GP850 from Bob...")
+    val boughtLg = bob.buyDisplay(lg)
+    println("Bought: ${boughtLg?.model}")
+    bob.assist()
+
+    println("\nBuying Dell-U2723QE from Bob...")
+    val boughtDell = bob.buyDisplay(dell)
+    println("Bought: ${boughtDell?.model}")
+    alice.assist()
+
+
 }
