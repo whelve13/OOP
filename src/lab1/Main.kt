@@ -1,5 +1,66 @@
+import java.util.Locale
+import kotlin.math.sqrt
+import kotlin.math.round
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+
+class Display(
+    val model: String,
+    private val width: Int,
+    private val height: Int,
+    private val ppi: Float
+) {
+    private fun diagonalInches(): Double {
+        val w = width.toDouble()
+        val h = height.toDouble()
+        return round((sqrt(w * w + h * h) / ppi) * 10.0) / 10.0
+    }
+    private fun formatInches(value: Double): String {
+        return String.format(Locale.US, "%.1f", value)
+    }
+    fun compareSize(other: Display) {
+        val mySize = diagonalInches()
+        val otherSize = other.diagonalInches()
+        val myFormatted = formatInches(mySize)
+        val otherFormatted = formatInches(otherSize)
+        when {
+            mySize > otherSize ->
+                println("$model ($myFormatted\") is bigger than ${other.model} ($otherFormatted\").")
+            mySize < otherSize ->
+                println("$model ($myFormatted\") is smaller than ${other.model} ($otherFormatted\").")
+            else ->
+                println("$model ($myFormatted\") is the same size as ${other.model} ($otherFormatted\").")
+        }
+    }
+    fun compareSharpness(other: Display) {
+        when {
+            ppi > other.ppi ->
+                println("$model ($ppi ppi) is sharper than ${other.model} (${other.ppi} ppi).")
+            ppi < other.ppi ->
+                println("$model ($ppi ppi) is less sharp than ${other.model} (${other.ppi} ppi).")
+            else ->
+                println("$model ($ppi ppi) has the same sharpness as ${other.model} (${other.ppi} ppi).")
+        }
+    }
+    fun compareWithMonitor(other: Display) {
+        println("Comparing $model vs ${other.model}")
+        compareSize(other)
+        compareSharpness(other)
+        val mySize = diagonalInches()
+        val otherSize = other.diagonalInches()
+        val verdict = when {
+            mySize > otherSize && ppi > other.ppi -> "$model wins on both size and sharpness."
+            mySize < otherSize && ppi < other.ppi -> "${other.model} wins on both size and sharpness."
+            mySize == otherSize && ppi > other.ppi -> "$model wins on sharpness (same size)."
+            mySize == otherSize && ppi < other.ppi -> "${other.model} wins on sharpness (same size)."
+            mySize > otherSize && ppi == other.ppi -> "$model wins on size (same sharpness)."
+            mySize < otherSize && ppi == other.ppi -> "${other.model} wins on size (same sharpness)."
+            mySize == otherSize && ppi == other.ppi -> "Both monitors match in size and sharpness."
+            else -> "Tradeoff is one is bigger while the other is sharper."
+        }
+        println("Verdict: $verdict")
+    }
+}
 
 class ConsoleSink {
     fun write(line: String) {
@@ -128,17 +189,15 @@ class ParenthesesValidator {
 }
 
 fun main() {
-    Logger.level = LogLevel.TRACE
-    val logger = Logger("BonusTest")
-    println("Normal varargs")
-    logger.info("Pair found at % and %", 3, 7)
-    println("\nEscaped literal %%")
-    logger.info("Progress is 100%% complete for %", "Lab2")
-    println("\nEdge cases: mismatched counts")
-    logger.warn("More placeholders: % and % and %", "one")
-    logger.warn("More arguments: %", "first", "second", "third")
-    println("\nPlaceholder safety with varargs")
-    logger.info("User sent %", "%n %t")
+    val dell = Display("Dell-U2723QE", 3840, 2160, 163.0f)
+    val lg = Display("LG-27GP850", 2560, 1440, 108.8f)
+    val samsung = Display("Samsung-Odyssey-G5", 2560, 1440, 93.0f)
+    samsung.compareSize(lg)
+    dell.compareSharpness(lg)
+    println()
+    dell.compareWithMonitor(samsung)
+    println()
+    dell.compareWithMonitor(lg)
 
-
+    
 }
