@@ -8,8 +8,12 @@ class Display(
     val model: String,
     private val width: Int,
     private val height: Int,
-    private val ppi: Float
+    private val ppi: Float,
+    private val logger: Logger
 ) {
+    init {
+        logger.trace("Display % created (%\", % ppi)", model, formatInches(diagonalInches()), ppi)
+    }
     private fun diagonalInches(): Double {
         val w = width.toDouble()
         val h = height.toDouble()
@@ -43,7 +47,7 @@ class Display(
         }
     }
     fun compareWithMonitor(other: Display) {
-        println("Comparing $model vs ${other.model}")
+        println("> Comparing $model vs ${other.model}")
         compareSize(other)
         compareSharpness(other)
         val mySize = diagonalInches()
@@ -62,22 +66,33 @@ class Display(
     }
 }
 
-class DisplayManager(val name: String) {
-
+class DisplayManager(
+    val name: String,
+    private val logger: Logger
+) {
     private val assignedDisplays: MutableList<Display> = mutableListOf()
 
+    init {
+        logger.trace("Manager % created", name)
+    }
+
     fun assignDisplay(d: Display) {
+        if (assignedDisplays.contains(d)) {
+            logger.warn("% already has % assigned; skipping duplicate", name, d.model)
+            return
+        }
         assignedDisplays.add(d)
+        logger.trace("% assigned to %", d.model, name)
     }
 
     fun assist() {
         println("\n> Manager $name assisting")
         if (assignedDisplays.isEmpty()) {
-            println("$name has no displays to compare.")
+            logger.warn("Manager % has no displays to assist with", name)
             return
         }
         if (assignedDisplays.size == 1) {
-            println("$name only has 1 display (${assignedDisplays[0].model}); need at least 2 to compare.")
+            logger.warn("Manager % only has 1 display (%); cannot compare", name, assignedDisplays[0].model)
             return
         }
 
@@ -88,8 +103,13 @@ class DisplayManager(val name: String) {
 
     fun buyDisplay(d: Display): Display? {
         return if (assignedDisplays.remove(d)) {
+            logger.info("% sold %", name, d.model)
+            if (assignedDisplays.isEmpty()) {
+                logger.warn("Manager % now has 0 displays left", name)
+            }
             d
         } else {
+            logger.error("Cannot buy % from %: display is not assigned to this manager", d.model, name)
             null
         }
     }
@@ -222,31 +242,28 @@ class ParenthesesValidator {
 }
 
 fun main() {
-    val dell = Display("Dell-U2723QE", 3840, 2160, 163.0f)
-    val lg = Display("LG-27GP850", 2560, 1440, 108.8f)
-    val samsung = Display("Samsung-Odyssey-G5", 2560, 1440, 93.0f)
-    val apple = Display("Apple-StudioDisplay", 5120, 2880, 218.0f)
-    val bob = DisplayManager("Bob")
-    val alice = DisplayManager("Alice")
+    Logger.level = LogLevel.TRACE
 
+    // one shared Formatter and ConsoleSink
+    val sharedFormatter = Formatter("[%t] [%l] %n: %m")
+    val consoleSink = ConsoleSink()
+
+    val displayLogger = Logger("Display", sharedFormatter, consoleSink)
+    val managerLogger = Logger("Manager", sharedFormatter, consoleSink)
+
+    val dell = Display("Dell-U2723QE", 3840, 2160, 163.0f, displayLogger)
+    val lg = Display("LG-27GP850", 2560, 1440, 108.8f, displayLogger)
+
+    val bob = DisplayManager("Bob", managerLogger)
     bob.assignDisplay(dell)
     bob.assignDisplay(lg)
-    bob.assignDisplay(samsung)
+    bob.assignDisplay(lg) // warn duplicate
 
-    alice.assignDisplay(apple)
-    alice.assignDisplay(dell)
-    bob.assist()
-    alice.assist()
-
-    println("\nBuying LG-27GP850 from Bob...")
-    val boughtLg = bob.buyDisplay(lg)
-    println("Bought: ${boughtLg?.model}")
     bob.assist()
 
-    println("\nBuying Dell-U2723QE from Bob...")
-    val boughtDell = bob.buyDisplay(dell)
-    println("Bought: ${boughtDell?.model}")
-    alice.assist()
+    bob.buyDisplay(lg)
+    bob.buyDisplay(dell) // info and warn 0 displays left
+    bob.buyDisplay(dell) // error not assigned anymore
 
 
 }
