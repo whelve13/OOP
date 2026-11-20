@@ -3,6 +3,26 @@ import kotlin.math.sqrt
 import kotlin.math.round
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.io.File
+import java.io.IOException
+
+class CommandReader(private val logger: Logger) {
+    fun readLines(filePath: String): List<String>? {
+        val file = File(filePath)
+        if (!file.exists() || !file.isFile) {
+            logger.error("Command file not found or is not a valid file: %", filePath)
+            return null
+        }
+        return try {
+            val lines = file.readLines()
+            logger.trace("Successfully read % lines from %", lines.size, filePath)
+            lines
+        } catch (e: IOException) {
+            logger.error("Failed to read file %: %", filePath, e.message ?: "unknown I/O error")
+            null
+        }
+    }
+}
 
 class Display(
     val model: String,
@@ -241,29 +261,24 @@ class ParenthesesValidator {
     }
 }
 
-fun main() {
+fun main(args: Array<String>) {
     Logger.level = LogLevel.TRACE
 
-    // one shared Formatter and ConsoleSink
     val sharedFormatter = Formatter("[%t] [%l] %n: %m")
     val consoleSink = ConsoleSink()
+    val readerLogger = Logger("Reader", sharedFormatter, consoleSink)
 
-    val displayLogger = Logger("Display", sharedFormatter, consoleSink)
-    val managerLogger = Logger("Manager", sharedFormatter, consoleSink)
+    val filePath = if (args.isNotEmpty()) args[0] else "shop-monday.txt"
+    val reader = CommandReader(readerLogger)
 
-    val dell = Display("Dell-U2723QE", 3840, 2160, 163.0f, displayLogger)
-    val lg = Display("LG-27GP850", 2560, 1440, 108.8f, displayLogger)
+    val lines = reader.readLines(filePath)
+    if (lines == null) { // file did not exist
+        return
+    }
 
-    val bob = DisplayManager("Bob", managerLogger)
-    bob.assignDisplay(dell)
-    bob.assignDisplay(lg)
-    bob.assignDisplay(lg) // warn duplicate
-
-    bob.assist()
-
-    bob.buyDisplay(lg)
-    bob.buyDisplay(dell) // info and warn 0 displays left
-    bob.buyDisplay(dell) // error not assigned anymore
+    for ((index, line) in lines.withIndex()) {
+        println("${index + 1}: $line")
+    }
 
 
 }
