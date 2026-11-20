@@ -261,23 +261,168 @@ class ParenthesesValidator {
     }
 }
 
+fun findManager(name: String, managers: List<DisplayManager>): DisplayManager? {
+    for (m in managers) {
+        if (m.name == name) return m
+    }
+    return null
+}
+
+fun findDisplay(model: String, displays: List<Display>): Display? {
+    for (d in displays) {
+        if (d.model == model) return d
+    }
+    return null
+}
+
+fun parseCommand(
+    lineNumber: Int,
+    line: String,
+    managers: MutableList<DisplayManager>,
+    displays: MutableList<Display>,
+    parserLogger: Logger,
+    displayLogger: Logger,
+    managerLogger: Logger
+) {
+    val trimmed = line.trim()
+    if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+        return
+    }
+
+    val words = trimmed.split(Regex("\\s+"))
+    val command = words[0]
+
+    when (command) {
+        "MANAGER" -> {
+            if (words.size != 2) {
+                parserLogger.error("Line %: Manager expects 1 argument (<name>), got %", lineNumber, words.size - 1)
+                return
+            }
+            val name = words[1]
+            if (findManager(name, managers) != null) {
+                parserLogger.warn("Line %: Manager % already exists; skipping", lineNumber, name)
+                return
+            }
+            managers.add(DisplayManager(name, managerLogger))
+        }
+
+        "DISPLAY" -> {
+            if (words.size != 5) {
+                parserLogger.error("Line %: Display expects 4 arguments (<model> <w> <h> <ppi>), got %", lineNumber, words.size - 1)
+                return
+            }
+            val model = words[1]
+            val width = words[2].toIntOrNull()
+            val height = words[3].toIntOrNull()
+            val ppi = words[4].toFloatOrNull()
+
+            if (width == null || height == null || ppi == null || width <= 0 || height <= 0 || ppi <= 0f) {
+                parserLogger.error("Line %: Invalid numeric dimensions/ppi for DISPLAY %", lineNumber, model)
+                return
+            }
+            if (findDisplay(model, displays) != null) {
+                parserLogger.warn("Line %: Display % already exists; skipping", lineNumber, model)
+                return
+            }
+            displays.add(Display(model, width, height, ppi, displayLogger))
+        }
+
+        "ASSIGN" -> {
+            if (words.size != 3) {
+                parserLogger.error("Line %: ASSIGN expects 2 arguments (<model> <manager>), got %", lineNumber, words.size - 1)
+                return
+            }
+            val model = words[1]
+            val managerName = words[2]
+
+            val display = findDisplay(model, displays)
+            if (display == null) {
+                parserLogger.error("Line %: Unknown display '%' in ASSIGN", lineNumber, model)
+                return
+            }
+            val manager = findManager(managerName, managers)
+            if (manager == null) {
+                parserLogger.error("Line %: Unknown manager '%' in ASSIGN", lineNumber, managerName)
+                return
+            }
+            manager.assignDisplay(display)
+        }
+
+        "COMPARE" -> {
+            if (words.size != 3) {
+                parserLogger.error("Line %: COMPARE expects 2 arguments (<model1> <model2>), got %", lineNumber, words.size - 1)
+                return
+            }
+            val d1 = findDisplay(words[1], displays)
+            val d2 = findDisplay(words[2], displays)
+            if (d1 == null) {
+                parserLogger.error("Line %: Unknown display '%' in COMPARE", lineNumber, words[1])
+                return
+            }
+            if (d2 == null) {
+                parserLogger.error("Line %: Unknown display '%' in COMPARE", lineNumber, words[2])
+                return
+            }
+            d1.compareWithMonitor(d2)
+        }
+
+        "ASSIST" -> {
+            if (words.size != 2) {
+                parserLogger.error("Line %: ASSIST expects 1 argument (<manager>), got %", lineNumber, words.size - 1)
+                return
+            }
+            val manager = findManager(words[1], managers)
+            if (manager == null) {
+                parserLogger.error("Line %: Unknown manager '%' in ASSIST", lineNumber, words[1])
+                return
+            }
+            manager.assist()
+        }
+
+        "BUY" -> {
+            if (words.size != 3) {
+                parserLogger.error("Line %: BUY expects 2 arguments (<model> <manager>), got %", lineNumber, words.size - 1)
+                return
+            }
+            val display = findDisplay(words[1], displays)
+            val manager = findManager(words[2], managers)
+            if (display == null) {
+                parserLogger.error("Line %: Unknown display '%' in BUY", lineNumber, words[1])
+                return
+            }
+            if (manager == null) {
+                parserLogger.error("Line %: Unknown manager '%' in BUY", lineNumber, words[2])
+                return
+            }
+            manager.buyDisplay(display)
+        }
+
+        else -> {
+            parserLogger.error("Line %: Unknown command '%'", lineNumber, command)
+        }
+    }
+}
+
 fun main(args: Array<String>) {
     Logger.level = LogLevel.TRACE
 
     val sharedFormatter = Formatter("[%t] [%l] %n: %m")
     val consoleSink = ConsoleSink()
+
     val readerLogger = Logger("Reader", sharedFormatter, consoleSink)
+    val parserLogger = Logger("Parser", sharedFormatter, consoleSink)
+    val displayLogger = Logger("Display", sharedFormatter, consoleSink)
+    val managerLogger = Logger("Manager", sharedFormatter, consoleSink)
 
     val filePath = if (args.isNotEmpty()) args[0] else "shop-monday.txt"
     val reader = CommandReader(readerLogger)
+    val lines = reader.readLines(filePath) ?: return
 
-    val lines = reader.readLines(filePath)
-    if (lines == null) { // file did not exist
-        return
-    }
+    val managers = mutableListOf<DisplayManager>()
+    val displays = mutableListOf<Display>()
 
     for ((index, line) in lines.withIndex()) {
-        println("${index + 1}: $line")
+        parseCommand(index + 1, line, managers, displays, parserLogger, displayLogger, managerLogger)
     }
 
 
