@@ -1,0 +1,17 @@
+# Custom test file for edge cases not tested in monday/tuesday
+MANAGER    Eve
+DISPLAY    Monitor-A 1920 1080 90.0
+DISPLAY    Monitor-A 1920 1080 90.0
+DISPLAY    Bad-Negative -1920 1080 90.0
+DISPLAY    Bad-Zero 1920 1080 0.0
+
+MANAGER Eve ExtraWord
+ASSIGN Monitor-A Eve
+# Assist with only 1 display (WARN)
+ASSIST Eve
+
+# Self-comparison (same size & sharpness)
+COMPARE Monitor-A Monitor-A
+
+# Extra arguments on ASSIST
+ASSIST Eve Extra
