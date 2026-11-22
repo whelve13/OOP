@@ -404,7 +404,14 @@ fun parseCommand(
 }
 
 fun main(args: Array<String>) {
-    Logger.level = LogLevel.TRACE
+    val levelArg = if (args.size > 1) args[1].uppercase() else "TRACE"
+    Logger.level = when (levelArg) {
+        "TRACE" -> LogLevel.TRACE
+        "INFO" -> LogLevel.INFO
+        "WARN" -> LogLevel.WARN
+        "ERROR" -> LogLevel.ERROR
+        else -> LogLevel.TRACE
+    }
 
     val sharedFormatter = Formatter("[%t] [%l] %n: %m")
     val consoleSink = ConsoleSink()
